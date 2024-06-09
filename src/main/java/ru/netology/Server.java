@@ -6,16 +6,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
+import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 
 public class Server {
     private static final List<String> validPaths = List.of("/index.html", "/spring.svg", "/spring.png",
             "/resources.html", "/styles.css", "/app.js", "/links.html", "/forms.html", "/classic.html", "/events.html", "/events.js");
-    private final ConcurrentHashMap<String, Map<String, Handler>> handlers;
+    private final ConcurrentHashMap<String, ConcurrentHashMap<String, Handler>> handlers;
 
     public Server() {
         handlers = new ConcurrentHashMap<>();
@@ -49,16 +48,21 @@ public class Server {
 
             final var method = parts[0];
             final var path = parts[1];
-            Request request = new Request(method, path);
+            final var protocolVersion = parts[2];
+            System.out.println(method+"\n"+path+"\n"+protocolVersion);
+            Request request = new Request(method, path, protocolVersion);
 
-            if (!handlers.containsKey(request.getRequestMethod()) || !validPaths.contains(path)) {
+            if (!handlers.containsKey(request.getRequestMethod())) {
                 notFound(out);
                 return;
             }
 
             handlers.get(request.getRequestMethod()).get(request.getRequestPath()).handle(request, out);
+            System.out.println(request.getQueryParams());
 
-        } catch (IOException e) {
+        } catch (NullPointerException e) {
+            e.getMessage();
+        } catch (IOException | URISyntaxException e) {
             e.printStackTrace();
         }
     }
@@ -75,7 +79,7 @@ public class Server {
 
     public void addHandler(String requestMethod, String path, Handler handler) {
         if (!handlers.containsKey(requestMethod)) {
-            handlers.put(requestMethod, new HashMap<>());
+            handlers.put(requestMethod, new ConcurrentHashMap<>());
         }
         handlers.get(requestMethod).put(path, handler);
     }
